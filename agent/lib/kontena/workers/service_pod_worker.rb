@@ -21,7 +21,7 @@ module Kontena::Workers
     CLOCK_SKEW = Kernel::Float(ENV['KONTENA_CLOCK_SKEW'] || 1.0) # seconds
 
     attr_reader :node, :prev_state, :service_pod
-    attr_accessor :service_pod, :container_state_changed, :hook_manager
+    attr_accessor :service_pod, :hook_manager
 
     # @param node [Node]
     # @param service_pod [ServicePod]
@@ -30,10 +30,10 @@ module Kontena::Workers
       @service_pod = service_pod
       @hook_manager = Kontena::ServicePods::LifecycleHookManager.new(node)
       @prev_state = nil # last state sent to master; do not go backwards in time
-      @container_state_changed = true
       @deploy_rev_changed = false
       @restarts = 0
       @restarting_at = nil # restart requested for container if still running at given timestamp
+      @apply_started = @apply_finished_at = nil
       subscribe('container:event', :on_container_event)
     end
 
@@ -55,7 +55,10 @@ module Kontena::Workers
                      @service_pod.deploy_rev != service_pod.deploy_rev
       return false if restarting?
 
-      @container_state_changed == true
+      # retry apply if it failed
+      return true if @apply_started_at && (!@apply_finished_at || @apply_finished_at < @apply_started_at)
+
+      return false
     end
 
     # @param service_pod [Kontena::Models::ServicePod]
@@ -76,7 +79,6 @@ module Kontena::Workers
         at = Time.at(event.time_nano.to_f / 10**9)
         if at > @container.started_at
           debug "#{@service_pod} container event: #{event.status} at #{at.utc.xmlschema(9)}"
-          @container_state_changed = true
 
           if event.status == 'die'
             handle_restart_on_die
@@ -149,6 +151,8 @@ module Kontena::Workers
       container = nil
 
       exclusive {
+        @apply_started_at = Time.now
+
         # make sure we sync the correct service_pod rev back to the master, if it changes later during the apply
         service_pod = @service_pod
 
@@ -161,7 +165,9 @@ module Kontena::Workers
           info "#{@service_pod} stayed up 10s, resetting restart backoff counter" if restarting?
           @restarts = 0
         }
-        @container_state_changed = false
+
+        # does not get updated if ensure_desired_state failed, so needs_apply? => true
+        @apply_finished_at = Time.now
       }
 
       if service_pod.running? && service_pod.wait_for_port
@@ -175,7 +181,7 @@ module Kontena::Workers
       end
 
     rescue => error
-      warn "failed to sync #{service_pod.name} at #{service_pod.deploy_rev}: #{error}"
+      warn "failed to apply #{service_pod.name} at #{service_pod.deploy_rev}: #{error}"
       warn error
       sync_state_to_master(service_pod, container, error) # XXX: unknown container?
     else
