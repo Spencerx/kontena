@@ -89,9 +89,9 @@ module Kontena::Workers
       backoff = @restarts ** 2
       backoff = max_restart_backoff if backoff > max_restart_backoff
       if backoff == 0
-        info "restarting #{@service_pod.name_for_humans} because it has stopped"
+        info "restarting #{@service_pod} because it has stopped"
       else
-        info "restarting #{@service_pod.name_for_humans} because it has stopped (delay: #{backoff}s)"
+        info "restarting #{@service_pod} because it has stopped (delay: #{backoff}s)"
       end
       ts = Time.now.utc
       @restarts += 1
@@ -118,6 +118,7 @@ module Kontena::Workers
 
     # User requested service restart
     def restart(at = Time.now)
+      debug "mark #{@service_pod} for restart at #{at}"
       @restarting_at = at
       apply
     end
@@ -141,7 +142,7 @@ module Kontena::Workers
 
         # reset restart counter if instance stays up 10s
         @restart_counter_reset_timer = after(10) {
-          info "#{@service_pod.name_for_humans} stayed up 10s, resetting restart backoff counter" if restarting?
+          info "#{@service_pod} stayed up 10s, resetting restart backoff counter" if restarting?
           @restarts = 0
         }
         @container_state_changed = false
@@ -243,7 +244,7 @@ module Kontena::Workers
     rescue => exc
       log_service_pod_event(
         "service:create_instance",
-        "unexpected error while creating #{service_pod.name_for_humans}: #{exc.message}",
+        "unexpected error while creating #{service_pod}: #{exc.message}",
         Logger::ERROR
       )
       raise exc
@@ -254,7 +255,7 @@ module Kontena::Workers
     rescue => exc
       log_service_pod_event(
         "service:start_instance",
-        "Unexpected error while starting service instance #{service_pod.name_for_humans}: #{exc.message}",
+        "Unexpected error while starting service instance #{service_pod}: #{exc.message}",
         Logger::ERROR
       )
       raise exc
@@ -265,7 +266,7 @@ module Kontena::Workers
     rescue => exc
       log_service_pod_event(
         "service:restart_instance",
-        "Unexpected error while restarting service instance #{service_pod.name_for_humans}: #{exc.message}",
+        "Unexpected error while restarting service instance #{service_pod}: #{exc.message}",
         Logger::ERROR
       )
       raise exc
@@ -276,7 +277,7 @@ module Kontena::Workers
     rescue => exc
       log_service_pod_event(
         "service:stop_instance",
-        "Unexpected error while stopping service instance #{service_pod.name_for_humans}: #{exc.message}",
+        "Unexpected error while stopping service instance #{service_pod}: #{exc.message}",
         Logger::ERROR
       )
       raise exc
@@ -287,7 +288,7 @@ module Kontena::Workers
     rescue => exc
       log_service_pod_event(
         "service:remove_instance",
-        "Unexpected error while removing service instance #{service_pod.name_for_humans}: #{exc.message}",
+        "Unexpected error while removing service instance #{service_pod}: #{exc.message}",
         Logger::ERROR
       )
       raise exc
@@ -403,11 +404,11 @@ module Kontena::Workers
 
       exclusive {
         if @prev_state && @prev_state[:rev] && service_pod.deploy_rev < @prev_state[:rev]
-          warn "skip #{service_pod.name_for_humans} state sync at #{service_pod.deploy_rev}: stale, last sync at #{@prev_state[:rev]}"
+          warn "skip #{service_pod} state sync at #{service_pod.deploy_rev}: stale, last sync at #{@prev_state[:rev]}"
         elsif state == @prev_state
-          debug "skip #{service_pod.name_for_humans} state sync at #{service_pod.deploy_rev}: unchanged"
+          debug "skip #{service_pod} state sync at #{service_pod.deploy_rev}: unchanged"
         else
-          debug "sync #{service_pod.name_for_humans} state at #{service_pod.deploy_rev}: #{state}"
+          debug "sync #{service_pod} state at #{service_pod.deploy_rev}: #{state}"
           rpc_client.async.request('/node_service_pods/set_state', [node.id, state])
           @prev_state = state
         end
