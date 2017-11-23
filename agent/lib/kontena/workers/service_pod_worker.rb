@@ -33,6 +33,7 @@ module Kontena::Workers
       @container_state_changed = true
       @deploy_rev_changed = false
       @restarts = 0
+      @restarting_at = nil # restart requested for container if still running at given timestamp
       subscribe('container:event', :on_container_event)
     end
 
@@ -116,8 +117,8 @@ module Kontena::Workers
     end
 
     # User requested service restart
-    def restart
-      @service_pod.mark_for_restart
+    def restart(at = Time.now)
+      @restarting_at = at
       apply
     end
 
@@ -353,7 +354,7 @@ module Kontena::Workers
 
     # @return [Boolean]
     def restart_service_container?(service_container)
-      @service_pod.restarted_at && service_container.started_at < @service_pod.restarted_at
+      @restarting_at && service_container.started_at < @restarting_at
     end
 
     # @return [Kontena::Workers::ImagePullWorker]

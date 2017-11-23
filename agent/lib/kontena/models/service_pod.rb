@@ -50,9 +50,8 @@ module Kontena
                   :volume_specs,
                   :read_only,
                   :stop_signal,
-                  :stop_grace_period,
-                  :restarted_at
-                  
+                  :stop_grace_period
+
       attr_accessor :entrypoint, :cmd
 
       # @param [Hash] attrs
@@ -99,7 +98,6 @@ module Kontena
         @read_only = attrs['read_only']
         @stop_signal = attrs['stop_signal']
         @stop_grace_period = attrs['stop_grace_period']
-        @restarted_at = nil
       end
 
       # @return [Boolean]
@@ -135,10 +133,6 @@ module Kontena
 
       def mark_as_terminated
         @desired_state = 'terminated'
-      end
-
-      def mark_for_restart
-        @restarted_at = Time.now
       end
 
       # @return [String]
