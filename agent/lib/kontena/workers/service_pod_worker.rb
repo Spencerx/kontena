@@ -131,6 +131,7 @@ module Kontena::Workers
       end
       if started_at && @container.started_at != started_at
         debug "stale #{@service_pod} restart for container started_at=#{started_at}"
+        return
       end
 
       debug "mark #{@service_pod} for restart at #{at}"
