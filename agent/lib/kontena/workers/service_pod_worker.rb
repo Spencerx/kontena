@@ -74,9 +74,16 @@ module Kontena::Workers
     def on_container_event(topic, event)
       if @container && event.id == @container.id
         at = Time.at(event.time_nano.to_f / 10**9)
-        debug "container event: #{event.status} at #{at.utc.xmlschema(9)}"
-        @container_state_changed = true
-        handle_restart_on_die if event.status == 'die'.freeze && at > @container.started_at
+        if at > @container.started_at
+          debug "#{@service_pod} container event: #{event.status} at #{at.utc.xmlschema(9)}"
+          @container_state_changed = true
+
+          if event.status == 'die'
+            handle_restart_on_die
+          end
+        else
+          debug "#{@service_pod} stale container event: #{event.status} at #{at.utc.xmlschema(9)} < #{@container.started_at}"
+        end
       end
     end
 
