@@ -124,7 +124,15 @@ module Kontena::Workers
     end
 
     # User requested service restart
-    def restart(at = Time.now)
+    def restart(at = Time.now, container_id: nil, started_at: nil)
+      if container_id && @container.id != container_id
+        debug "stale #{@service_pod} restart for container id=#{container_id}"
+        return
+      end
+      if started_at && @container.started_at != started_at
+        debug "stale #{@service_pod} restart for container started_at=#{started_at}"
+      end
+
       debug "mark #{@service_pod} for restart at #{at}"
       @restarting_at = at
       apply
@@ -362,7 +370,7 @@ module Kontena::Workers
 
     # @return [Boolean]
     def restart_service_container?(service_container)
-      @restarting_at && service_container.started_at < @restarting_at
+      @restarting_at && service_container.started_at <= @restarting_at
     end
 
     # @return [Kontena::Workers::ImagePullWorker]

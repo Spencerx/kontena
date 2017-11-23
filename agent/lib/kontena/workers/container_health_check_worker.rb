@@ -115,6 +115,8 @@ module Kontena::Workers
       Celluloid::Notifications.publish('service_pod:restart', {
         service_id: @container.service_id,
         instance_number: @container.instance_number,
+        container_id: @container.id,
+        started_at: @container.started_at,
       })
     end
 

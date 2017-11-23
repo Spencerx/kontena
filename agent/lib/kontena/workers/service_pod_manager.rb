@@ -43,7 +43,10 @@ module Kontena::Workers
     # @param topic [String] service_pod:restart
     # @param event [Hash{service_id: String, instance_number: Integer}]
     def on_restart_notify(topic, event)
-      notify_worker_restart("#{event[:service_id]}/#{event[:instance_number]}")
+      notify_worker_restart("#{event[:service_id]}/#{event[:instance_number]}",
+        container_id: event[:container_id],
+        started_at: event[:started_at],
+      )
     end
 
     def on_pod_event(_, event)
@@ -103,9 +106,9 @@ module Kontena::Workers
     end
 
     # @param id [String]
-    def notify_worker_restart(id)
+    def notify_worker_restart(id, **opts)
       if worker = workers[id]
-        worker.async.restart
+        worker.async.restart(**opts)
       else
         warn "ignore restart for unknown service pod: #{id}"
       end
