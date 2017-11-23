@@ -82,7 +82,7 @@ module Kontena::Workers
             handle_restart_on_die
           end
         else
-          debug "#{@service_pod} stale container event: #{event.status} at #{at.utc.xmlschema(9)} < #{@container.started_at}"
+          debug "#{@service_pod} stale container event: #{event.status} at #{at.utc.xmlschema(9)} < #{@container.started_at.utc.xmlschema(9)}"
         end
       end
     end
