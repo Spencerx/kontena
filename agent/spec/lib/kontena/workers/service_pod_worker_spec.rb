@@ -69,7 +69,7 @@ describe Kontena::Workers::ServicePodWorker, :celluloid => true do
           # XXX: in this case both the failing initial wait_for_port, and the restart will report state...
           expect(subject.wrapped_object).to receive(:sync_state_to_master).with(service_pod, restarted_container)
 
-          subject.on_container_event('container:event', double(id: container_id, status: 'die'))
+          subject.on_container_event('container:event', double(id: container_id, status: 'die', time_nano: (Time.now.to_f * 1e9).to_s))
 
           false
         end
