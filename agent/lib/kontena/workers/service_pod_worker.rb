@@ -55,8 +55,8 @@ module Kontena::Workers
                      @service_pod.deploy_rev != service_pod.deploy_rev
       return false if restarting?
 
-      # retry apply if it failed
-      return true if @apply_started_at && (!@apply_finished_at || @apply_finished_at < @apply_started_at)
+      # retry apply if it not yet started, or failed
+      return true if !@apply_started_at || (!@apply_finished_at || @apply_finished_at < @apply_started_at)
 
       return false
     end
