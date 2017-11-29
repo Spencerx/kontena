@@ -330,46 +330,67 @@ describe Kontena::Workers::ServicePodWorker, :celluloid => true do
   end
 
   describe '#on_container_event' do
-    before do
-      subject.container_state_changed = false
-    end
-
     context 'without any active container' do
       it 'ignores any events' do
-        event = double(:event, id: '2b52d7ac3c70f4533a47d93cb81a8864eb2608705e0a986bdcced468f20e5025', status: 'start')
+        event = double(:event, id: '2b52d7ac3c70f4533a47d93cb81a8864eb2608705e0a986bdcced468f20e5025', status: 'die')
 
-        expect {
-          subject.on_container_event('container:event', event)
-        }.not_to change { subject.container_state_changed }
+        expect(subject.wrapped_object).to_not receive(:handle_restart_on_die)
+
+        subject.on_container_event('container:event', event)
       end
     end
 
     context 'with an active container' do
-      let(:container) { double(:container, id: '2b52d7ac3c70f4533a47d93cb81a8864eb2608705e0a986bdcced468f20e5025') }
+      let(:started_at) { Time.now - 60.0 }
+      let(:container) { double(:container,
+        id: '2b52d7ac3c70f4533a47d93cb81a8864eb2608705e0a986bdcced468f20e5025',
+        started_at: started_at,
+      ) }
+
+      let(:event_id) { '2b52d7ac3c70f4533a47d93cb81a8864eb2608705e0a986bdcced468f20e5025' }
+      let(:event_at) { Time.now - 59.0 }
+      let(:event_status) { 'die' }
+      let(:event) { double(:event,
+        id: event_id,
+        status: event_status,
+        time_nano: (event_at.to_f * 1e9).to_s,
+      ) }
 
       before do
         subject.instance_variable_set('@container', container)
       end
 
-      it 'ignores a mismatching event' do
-        event = double(:event, id: 'f02a583a0dd44a685a14c445b9826b5f8a8c46555fabf003de3009180ff7a24c', status: 'start')
+      context 'for an event with the wrong container ID' do
+        let(:event_id) { 'f02a583a0dd44a685a14c445b9826b5f8a8c46555fabf003de3009180ff7a24c' }
 
-        expect {
+        it 'ignores the event' do
+          expect(subject.wrapped_object).to_not receive(:handle_restart_on_die)
+
           subject.on_container_event('container:event', event)
-        }.not_to change { subject.container_state_changed }
+        end
       end
 
-      it 'marks container state as changed' do
-        event = double(:event, id: '2b52d7ac3c70f4533a47d93cb81a8864eb2608705e0a986bdcced468f20e5025', status: 'start')
+      context 'for an event from before the container start' do
+        let(:event_at) { Time.now - 61.0 }
 
-        expect {
+        it 'ignores the event' do
+          expect(subject.wrapped_object).to_not receive(:handle_restart_on_die)
+
           subject.on_container_event('container:event', event)
-        }.to change { subject.container_state_changed }.from(false).to(true)
+        end
+      end
+
+      context 'for a start event' do
+        let(:event_status) { 'start' }
+
+        it 'ignores the event' do
+          expect(subject.wrapped_object).to_not receive(:handle_restart_on_die)
+
+          subject.on_container_event('container:event', event)
+        end
       end
 
       it 'triggers restart logic on container die events' do
-        event = double(:event, id: '2b52d7ac3c70f4533a47d93cb81a8864eb2608705e0a986bdcced468f20e5025', status: 'die')
-
         expect(subject.wrapped_object).to receive(:handle_restart_on_die)
 
         subject.on_container_event('container:event', event)
