@@ -63,7 +63,7 @@ module Kontena::Cli::Stacks
       # Values that are set always when parsing stacks
       # @return [Hash] a hash of key value pairs
       def default_envs
-        @default_envs ||= {
+        {
           'GRID' => env['GRID'],
           'STACK' => env['STACK'],
           'PLATFORM' => env['PLATFORM'] || env['GRID']
@@ -213,7 +213,11 @@ module Kontena::Cli::Stacks
           result['dependencies']  = dependencies
           result['source']        = raw_content
           result['variables']     = variable_values(without_defaults: true, without_vault: true)
-          result['parent_name']   = parent_name
+        end
+        if parent_name
+          result['parent'] = { 'name' => parent_name }
+        else
+          result['parent'] = nil
         end
         if service_name.nil?
           result['services'].each do |service|
@@ -273,6 +277,7 @@ module Kontena::Cli::Stacks
       # @param [String] service_name - optional service to parse
       # @return [Hash]
       def parse_services(service_name = nil)
+        services = self.services.dup # do not modify the fully_interpolated_yaml['services'] hash in-place
         if service_name.nil?
           services.each do |name, config|
             services[name] = process_config(config, name)
